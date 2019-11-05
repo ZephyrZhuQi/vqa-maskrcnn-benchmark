@@ -59,7 +59,10 @@ class ROIBoxHead(torch.nn.Module):
             class_logits, box_regression = self.predictor(x)
 
         if not self.training:
-            result = self.post_processor((class_logits, box_regression), proposals)
+            # no need of post processing
+            # the bounding box is ground truth and that's enough
+            #result = self.post_processor((class_logits, box_regression), proposals)
+            result = proposals
             if self.return_feats:
                 return out_dict, result, {}
             else:

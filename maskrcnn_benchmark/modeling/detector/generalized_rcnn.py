@@ -1,4 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
+# Modified by Qi Zhu, November 2019
 """
 Implements the Generalized R-CNN framework
 """
@@ -7,10 +8,14 @@ import torch
 from torch import nn
 
 from maskrcnn_benchmark.structures.image_list import to_image_list
+from maskrcnn_benchmark.structures.bounding_box import BoxList
 
 from ..backbone import build_backbone
 from ..rpn.rpn import build_rpn
 from ..roi_heads.roi_heads import build_roi_heads
+
+
+import numpy as np
 
 
 class GeneralizedRCNN(nn.Module):
@@ -21,6 +26,7 @@ class GeneralizedRCNN(nn.Module):
     = rpn
     - heads: takes the features + the proposals from the RPN and computes
         detections / masks from it.
+    - disable the functionality of rpn, use ground truth bounding box instead
     """
 
     def __init__(self, cfg):
@@ -46,9 +52,37 @@ class GeneralizedRCNN(nn.Module):
         """
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
-        images = to_image_list(images)
+        # images = to_image_list(images)
         features = self.backbone(images.tensors)
-        proposals, proposal_losses = self.rpn(images, features, targets)
+        # proposals, proposal_losses = self.rpn(images, features, targets)
+        # use gt as proposals instead of rpn
+        proposals = []
+        for image_index in range(len(images.image_sizes)):
+            image_size = images.image_sizes[image_index]
+            image_width = image_size[1]
+            image_height = image_size[0]
+            image_bboxes = images.image_bboxes[image_index]
+            # multiply height & width
+            image_bboxes = np.asarray(image_bboxes, dtype='float32')
+            image_bboxes[:,0] *= image_width
+            image_bboxes[:,1] *= image_width
+            image_bboxes[:,2] *= image_height
+            image_bboxes[:,3] *= image_height
+            # xxyy to xyxy
+            image_bboxes = image_bboxes[:,[0,2,1,3]]
+            b_row = image_bboxes.shape[0]
+            b_col = image_bboxes.shape[1]
+            pad_col = b_col
+            pad_row = b_row if b_row<100 else 100
+            bbox_temp = np.zeros((100,4))
+            bbox_temp[:pad_row,:pad_col]= image_bboxes[:pad_row,:pad_col]    
+            bbox_temp = torch.from_numpy(bbox_temp)    
+            bbox_temp = bbox_temp.cuda()
+            #print('bbox', bbox_temp)
+            proposal = BoxList(bbox_temp, (image_width,image_height), mode="xyxy")
+            proposals.append(proposal)
+		
+        
         if self.roi_heads:
             x, result, detector_losses = self.roi_heads(features, proposals, targets)
         else:
@@ -64,6 +98,7 @@ class GeneralizedRCNN(nn.Module):
             return losses
 
         if self.return_feats and not self.training:
+            #print('result', result[0].bbox)
             return (x, result)
 
         return result
