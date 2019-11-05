@@ -11,9 +11,21 @@ Only several small modifications have been added to the original vqa-maskrcnn-be
 
 
 # Instructions
+0. set up the environment
+first pip install torch and torchvison
+
+```bash
+python setup.py build
+python setup.py develop
+```
+```bash
+pip install opencv-python yacs tqdm
+```
 1. download detectron model and configuration file
+```
 - "https://dl.fbaipublicfiles.com/pythia/detectron_model/detectron_model.pth"
 - "https://dl.fbaipublicfiles.com/pythia/detectron_model/detectron_model.yaml"
+```
 put them in ./model/detectron_model.pth and ./model/detectron_model.yaml
 2. download ground truth bounding box and store them in ./bbox/bbox.json file(a dictionary), with file format:
 ```
@@ -37,7 +49,7 @@ put them in ./model/detectron_model.pth and ./model/detectron_model.yaml
 000c5171b38d4bb0 is image id and the four numbers are xmin, xmax, ymin, ymax(after normalization)
 ```
 3. put images in ./data/images
-3. generating feature maps
+4. generating feature maps
 ```bash
 CUDA_VISIBLE_DEVICES=x nohup python -u  extract_features_vmb.py --image_dir ./data/images --model_file ./model/detectron_model.pth --config_file ./model/detectron_model.yaml --output_folder ./output --batch_size 2 --bbox_json ./bbox/bbox.json > generate_feat.log 2>&1 &
 ```
